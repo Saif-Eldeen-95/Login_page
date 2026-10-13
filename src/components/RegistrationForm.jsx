@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from './Button';
-import Home from '../pages/Home';
+import { API_URL } from '../config';
 import './LoginForm.css';
 
 const fields = [
@@ -27,7 +28,7 @@ function validate(values) {
   if (!values.email.trim()) {
     errors.email = 'Please enter your email.';
   } else if (!/^\S+@gmail\.com$/.test(values.email)) {
-    errors.email = 'Please provide a valid email address.';
+    errors.email = 'Please use a Gmail address (example@gmail.com).';
   }
 
   if (!values.password) {
@@ -45,31 +46,55 @@ function validate(values) {
 
 function RegistrationForm() {
   const [values, setValues] = useState(initialValues);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setServerError('');
+
     const validationErrors = validate(values);
     setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
 
-    if (Object.keys(validationErrors).length === 0) {
-      setIsSubmitted(true);
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/register.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: values.name,
+          email: values.email,
+          password: values.password,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        navigate('/home', { state: { name: data.name } });
+      } else if (res.status === 409) {
+        // Email Already Exists
+        setErrors({ email: data.message });
+      } else {
+        setServerError(data.message || 'Something went wrong.');
+      }
+    } catch {
+      setServerError('Cannot connect to the server.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (isSubmitted) {
-    return <Home />;
-  }
-  
   return (
     <form className="form" onSubmit={handleSubmit} noValidate>
-      <h1>Login</h1>
+      <h1>Create Account</h1>
 
       {fields.map(({ name, label, type, placeholder }) => (
         <div className="form-group" key={name}>
@@ -87,7 +112,14 @@ function RegistrationForm() {
         </div>
       ))}
 
-      <Button type="submit">Submit</Button>
+      {serverError && <span className="error-message">{serverError}</span>}
+
+      <div className="button-group">
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Please wait...' : 'Submit'}
+        </Button>
+        <Button onClick={() => navigate('/')}>Back to Login</Button>
+      </div>
     </form>
   );
 }

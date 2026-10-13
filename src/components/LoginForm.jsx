@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from './Button';
-import Home from '../pages/Home';
+import { API_URL } from '../config';
 import './LoginForm.css';
 
 const fields = [
@@ -20,7 +20,7 @@ function validate_login(values) {
   if (!values.email.trim()) {
     errors.email = 'Please enter your email.';
   } else if (!/^\S+@gmail\.com$/.test(values.email)) {
-    errors.email = 'Please provide a valid email address.';
+    errors.email = 'Please use a Gmail address (example@gmail.com).';
   }
 
   if (!values.password) {
@@ -32,8 +32,9 @@ function validate_login(values) {
 
 function LoginForm() {
   const [values, setValues] = useState(initialValues);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (event) => {
@@ -41,47 +42,71 @@ function LoginForm() {
     setValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setServerError('');
+
     const validationErrors = validate_login(values);
     setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
 
-    if (Object.keys(validationErrors).length === 0) {
-      setIsSubmitted(true);
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/login.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        navigate('/home', { state: { name: data.name } });
+      } else {
+        setServerError(data.message || 'Something went wrong.');
+      }
+    } catch {
+      setServerError('Cannot connect to the server.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (isSubmitted) {
-    return <Home />;
-  }
   return (
     <>
-    <h1 className="h1">Welcome To My Web App</h1>
-    <br></br>
-    <form className="form" onSubmit={handleSubmit} noValidate>
-      <h1>Login</h1>
+      <h1 className="h1">Welcome To My Web App</h1>
+      <br></br>
+      <form className="form" onSubmit={handleSubmit} noValidate>
+        <h1>Login</h1>
 
-      {fields.map(({ name, label, type, placeholder }) => (
-        <div className="form-group" key={name}>
-          <label htmlFor={name}>{label}</label>
-          <input
-            id={name}
-            name={name}
-            type={type}
-            placeholder={placeholder}
-            value={values[name]}
-            onChange={handleChange}
-            className={errors[name] ? 'input-error' : ''}
+        {fields.map(({ name, label, type, placeholder }) => (
+          <div className="form-group" key={name}>
+            <label htmlFor={name}>{label}</label>
+            <input
+              id={name}
+              name={name}
+              type={type}
+              placeholder={placeholder}
+              value={values[name]}
+              onChange={handleChange}
+              className={errors[name] ? 'input-error' : ''}
             />
-          {errors[name] && <span className="error-message">{errors[name]}</span>}
+            {errors[name] && <span className="error-message">{errors[name]}</span>}
+          </div>
+        ))}
+
+        {serverError && <span className="error-message">{serverError}</span>}
+
+        <div className="button-group">
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Please wait...' : 'Submit'}
+          </Button>
+          <Button onClick={() => navigate('/register')}>Register</Button>
         </div>
-      ))}
-      <div className="button-group">
-        <Button type="submit">Submit</Button>
-        <Button onClick={() => navigate('/register')}>Register</Button>
-      </div>
-    </form>
-    <br></br>
+      </form>
+      <br></br>
     </>
   );
 }
