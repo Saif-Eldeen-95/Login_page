@@ -55,6 +55,9 @@ function LoginForm() {
     return <Home />;
   }
   return (
+    <>
+    <h1 className="h1">Welcome To My Web App</h1>
+    <br></br>
     <form className="form" onSubmit={handleSubmit} noValidate>
       <h1>Login</h1>
 
@@ -69,7 +72,7 @@ function LoginForm() {
             value={values[name]}
             onChange={handleChange}
             className={errors[name] ? 'input-error' : ''}
-          />
+            />
           {errors[name] && <span className="error-message">{errors[name]}</span>}
         </div>
       ))}
@@ -78,6 +81,8 @@ function LoginForm() {
         <Button onClick={() => navigate('/register')}>Register</Button>
       </div>
     </form>
+    <br></br>
+    </>
   );
 }
 
